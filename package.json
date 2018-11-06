@@ -2,7 +2,10 @@
   "name": "changelog-generator",
   "version": "0.0.1",
   "description": "node/js changelog generator creating a changelog.md file from git-log entries",
-  "bin": "bin/changelog.js",
+  "bin":  {
+    "changelog-generator": "src/js/changelog.js",
+    "changelog": "src/js/changelog.js"
+  }"bin/changelog.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
