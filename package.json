@@ -1,0 +1,21 @@
+{
+  "name": "changelog-generator",
+  "version": "0.0.1",
+  "description": "node/js changelog generator creating a changelog.md file from git-log entries",
+  "bin": "bin/changelog.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.bjoernbartels.earth/devops/changelog-generator.git"
+  },
+  "keywords": [
+    "git",
+    "log",
+    "changelog",
+    "generator"
+  ],
+  "author": "Björn Bartels <coding@bjoernbartels.earth>",
+  "license": "MIT"
+}
