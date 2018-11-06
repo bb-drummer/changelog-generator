@@ -3,11 +3,11 @@
   "version": "0.0.1",
   "description": "node/js changelog generator creating a changelog.md file from git-log entries",
   "bin":  {
-    "changelog-generator": "src/js/changelog.js",
-    "changelog": "src/js/changelog.js"
+    "changelog-generator": "./src/js/changelog.js",
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "changelog-generator": "./src/js/changelog.js"
   },
   "repository": {
     "type": "git",
