@@ -22,11 +22,6 @@
   "author": "Björn Bartels <coding@bjoernbartels.earth>",
   "license": "MIT",
   "dependencies": {
-    "js-yaml": "^3.4.6",
-    "compare-versions": "^3.4.0",
-    "path": "^0.12.7",
-    "rimraf": "^2.4.3",
-    "semver": "^5.6.0",
-    "yargs": "^12.0.2"
+    "compare-versions": "^3.4.0"
   }
 }
