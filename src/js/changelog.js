@@ -1,39 +1,50 @@
 #!/usr/bin/env node
 
-let logFile = "./CHANGELOG.md",
-    pageFile = "./src/pages/changelog.html",
-    verboseLog = !true,
-    fs = require("fs"),
-    exec = require("child_process").exec,
-    comparePkgVersion = require("compare-versions"),
-    pkg_node = require("../package.json"),
-    pkg_comp = require("../composer.json"),
-    commitURI = "",
-    jiraURI = "https://jira.bjoernbartels.earth/jira/browse/",
-    out = "";
+let fs     = require("fs"),
+    path   = require("path"),
+    yargs  = require("yargs"),
+    semver = require("semver"),
+    exec   = require("child_process").exec,
 
-const options = process.argv.slice(2)
+    pkg = require(path.join(process.cwd(),"package.json")),
+    has_rc_config = fs.existsSync(path.join(process.cwd(),".changelogrc")),
 
-if (pkg_node.homepage) {
-  let dir = (pkg_node.homepage.includes("bitbucket") ? "/commits/" : "/commit/");
-  commitURI = pkg_node.homepage + dir;
+    defaults = {
+      file   : "./CHANGELOG.md",
+      page   : null, // "./changelog.html",
+      link   : pkg.homepage ? pkg.homepage : null,
+      jira   : null, // jira URL
+      verbose: false
+    },
+    rcConfig   = has_rc_config ? require(path.join(process.cwd(),".changelogrc")) : {},
+
+    out        = "";
+
+let options = Object.assign({}, defaults);
+options = pkg.changelog ? Object.assign(options, pkg.changelog) : options;
+options = has_rc_config ? Object.assign(options, rcConfig) : options;
+options = yargs.argv ? Object.assign(options, yargs.argv) : options;
+
+if (pkg.homepage) {
+  let dir = (pkg.homepage.includes("bitbucket") ? "/commits/" : "/commit/");
+  commitURI = pkg.homepage + dir;
 }
 
 let errMsg = "";
-errMsg += "+--------------------------------------------+\n";
+errMsg += "+-------------------------------------------+\n";
 errMsg += "| There was an error creating the changelog |\n";
-errMsg += "+--------------------------------------------+\n";
+errMsg += "+-------------------------------------------+\n";
 
 // reads git-log output
 // hands over one large 'text' of log-lines to promise resolver
 function getCommits() {
-  return new Promise((res, rej) => {
+  return new Promise((resolve, reject) => {
     exec("git log --topo-order --full-history --simplify-merges --date=short --format=\"%cd~>%d~>%h~>%s~>%p\"", (err, commits) => {
       if (err) {
-        return rej(err);
+        return reject(err);
       }
 
-      res(commits);
+      resolve(commits);
     });
   });
 }
@@ -131,15 +142,15 @@ function setHeader(formattedCommits) {
 
 // determin latest tag (first commit in log) version
 function handleFirstCommitVersion(formattedCommits) {
-  return new Promise((res, rej) => {
+  return new Promise((resolve, reject) => {
     exec("git log --tags -1 --format=\"%d\"", (err, commit) => {
       if (err) {
-        return rej(err);
+        return reject(err);
       }
 
-      let pkgVers = pkg_node.version,
+      let pkgVers = pkg.version,
           tag,
-          latestTag = "0.0.0";
+          latestTag = '0.1.0';
 
       tag = commit.match(/tag: v?(\d{1,}\.\d{1,}\.\d{1,}[^,)]*)/);
 
@@ -147,15 +158,16 @@ function handleFirstCommitVersion(formattedCommits) {
         latestTag = tag[1].trim();
       }
 
-      /*if (comparePkgVersion(pkgVers, latestTag) === -1) {
-        return rej(`Your package version (${pkgVers}) has a SemVer value that falls before your latest tag (${latestTag}).`);
-      }*/
-
-      if (!formattedCommits[0].tag) {
-        out += `\n### ${pkgVers === latestTag ? "Latest" : pkgVers} (${getToday()})\n\n`;
+      if (semver.lt(pkgVers, latestTag)) {
+        console.log(`Your package version (${pkgVers}) has a SemVer value that falls before your latest tag (${latestTag}).`)
+        /*return reject(`Your package version (${pkgVers}) has a SemVer value that falls before your latest tag (${latestTag}).`);*/
       }
 
-      res(formattedCommits);
+      if (!formattedCommits[0].tag) {
+        out += `\n### ${semver.gte(pkgVers, latestTag) ? "Latest" : pkgVers} (${getToday()})\n\n`;
+      }
+
+      resolve(formattedCommits);
     });
   });
 }
@@ -179,19 +191,19 @@ function prepareOutput(formattedCommits) {
         out += `\n### ${commit.tag} (${commit.date})\n\n`;
     }
 
-    if (verboseLog && commit.indent) {
+    if (options.verbose && commit.indent) {
       out += "  ";
     }
 
-    if ( (!commit.indent) || (verboseLog && commit.indent) ) {
-      if (commitURI) {
-        out += `- ${commit.subject} - [\[GIT\]](${commitURI + commit.hash})`;
+    if ( (!commit.indent) || (options.verbose && commit.indent) ) {
+      if (options.link) {
+        out += `- ${commit.subject} - [\[GIT\]](${options.link + commit.hash})`;
       } else {
         out += `- ${commit.subject}`;
       }
 
-      if (commit.jira) {
-    	out += ` - [\[JIRA\]](${jiraURI + commit.jira})`;
+      if (commit.jira && options.jira) {
+    	out += ` - [\[JIRA\]](${options.jira + commit.jira})`;
       }
     }
 
@@ -204,43 +216,42 @@ function prepareOutput(formattedCommits) {
 
 // save output to file
 function saveLogFile() {
-  return new Promise((res, rej) => {
-    fs.writeFile(logFile, out, err => {
+  return new Promise((resolve, reject) => {
+    fs.writeFile(options.file, out, err => {
       if (err) {
-        return rej(err);
+        return reject(err);
       }
 
-      res();
+      resolve();
     });
   });
 }
 
-//save output to html (page) file for to be converted via 'panini'
+// save output to html (page) file for to be converted via 'panini'
 function saveHTMLpage() {
-  return new Promise((res, rej) => {
-    let MarkdownIt = require('markdown-it'),
-        md = new MarkdownIt();
+  return new Promise((resolve, reject) => {
+    if (!options.page) {
+      resolve()
+    }
+    let MarkdownRenderer = require('markded');
 
     let htmlLog = [
-      '---',
-      'layout: viewport',
-      '---',
       '<article class="lib-article row columns" id="top">',
         '<section class="lib-section">',
           '<div data-changelog-view>',
-              md.render(out),
+              MarkdownRenderer(out),
           '</div>',
         '</section>',
       '<article>'
     ].join("\n")
 
 
-    fs.writeFile(pageFile, htmlLog, err => {
+    fs.writeFile(options.page, htmlLog, err => {
       if (err) {
-        return rej(err);
+        return reject(err);
       }
 
-      res();
+      resolve();
     });
   });
 }
@@ -254,14 +265,9 @@ getCommits()
   .then(prepareOutput)
   .then(saveLogFile)
   .catch(err => {
-    let errMsg = "";
-
-    errMsg += "+--------------------------------------------+\n";
-    errMsg += "| There was an error creating your changelog |\n";
-    errMsg += "+--------------------------------------------+\n";
 
     console.error("\x1b[31m%s\x1b[0m", errMsg);
-    console.error(err + "\n");
+    console.error("\x1b[31m%s\x1b[0m\n", err);
 
     process.exit(1);
   });

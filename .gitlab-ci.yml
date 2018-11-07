@@ -1,0 +1,251 @@
+stages:
+  - setup
+  - build
+  - test
+  - deploy
+
+# Cache modules in between jobs
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    # cache JS dependencies
+    - node_modules/
+    # cache PHP dependencies
+    - vendor/
+    # cache package/project stuff, non-artifacts
+    #- dist/
+
+variables:
+  BUILD_TARGET: dist
+  BUILD_LABEL_TMPFILE: build.txt
+
+before_script:
+  - if [ -f ${BUILD_LABEL_TMPFILE} ]; then export BUILD_LABEL=`cat ${BUILD_LABEL_TMPFILE}`; fi
+
+init:
+  stage: setup
+  tags:
+    #- kunden-web
+    - node
+    #- php
+  before_script:
+    - export BUILD_LABEL=$(TZ=Europe/Berlin date +%Y%m%d-%H%M-$CI_COMMIT_REF_NAME)
+  script:
+    # save timestamp to file
+    - echo $BUILD_LABEL > ${BUILD_LABEL_TMPFILE}
+    - echo -e "\n\n\e[96mCreated new build label \e[107;30;1m $BUILD_LABEL \e[0m\n\n"
+    # other init commands
+    - whoami
+    - pwd
+    - node -v
+    - npm -v
+    - php -v
+    # check if a build environment exists and copy it or install a new one if it doesn't
+    - if [ -d /build-env_DOES_NOT_EXIT_USE_INSTALL_FOR_NOW/node_modules ] &&  [ -f /build-env/package-lock.json ];
+      then echo -e "\e[96mFOUND EXISTING BUILD ENVIRONMENT" && mv /build-env/* ./;
+      else echo -e "\e[93mNO EXISTING BUILD ENVIRONMENT - RUNNING INSTALL" && npm install;
+      fi
+    # list used packages and info
+    - npm ls || true
+  artifacts:
+    paths:
+      - ${BUILD_LABEL_TMPFILE}
+
+app-build:
+  stage: build
+  tags:
+    #- kunden-web
+    - node
+    #- php
+  dependencies:
+    - init
+  variables:
+    BUILD_INFO_FILE: httpdocs/build.txt
+  script:
+    #
+    # run no build
+    #- echo "Warning - no build specified" && exit 0
+    #
+    # run node build
+    - npm run build
+    # create build info file
+    - echo -e "LABEL=`cat ${BUILD_LABEL_TMPFILE}`" > ${BUILD_INFO_FILE}
+    - echo -e "TAG=${CI_COMMIT_TAG}" >> ${BUILD_INFO_FILE}
+    - echo -e "COMMIT=${CI_COMMIT_SHA}" >> ${BUILD_INFO_FILE}
+    - echo -e "PIPELINE=${CI_PIPELINE_ID}" >> ${BUILD_INFO_FILE}
+    - echo -e "USER=${GITLAB_USER_NAME} (${GITLAB_USER_LOGIN}) <${GITLAB_USER_EMAIL}>" >> ${BUILD_INFO_FILE}
+    # print debug-info
+    - cat ${BUILD_INFO_FILE}
+    - ls -la ${BUILD_TARGET}
+  artifacts:
+    paths:
+      - ${BUILD_TARGET}
+
+
+app-test-sass:
+  stage: test
+  tags:
+    - node
+  dependencies:
+    - app-build
+  script:
+    #
+    # run no tests
+    #- echo "Warning - no SASS tests specified" && exit 0
+    #
+    # run SASS tests
+    - npm run test:sass
+  artifacts:
+    paths:
+      - ${BUILD_TARGET}
+  when: manual
+
+app-test-javascript:
+  stage: test
+  tags:
+    - node
+  dependencies:
+    - app-build
+  script:
+    #
+    # run no tests
+    #- echo "Warning - no JavaScript tests specified" && exit 0
+    #
+    # run SASS tests
+    - npm run test:javascript
+  artifacts:
+    paths:
+      - ${BUILD_TARGET}
+  when: manual
+
+app-test-browser:
+  stage: test
+  tags:
+    - node
+  dependencies:
+    - app-build
+  script:
+    #
+    # run no tests
+    #- echo "Warning - no browser tests specified" && exit 0
+    #
+    # run browser/headless tests
+    - npm run test:browser
+  artifacts:
+    paths:
+      - ${BUILD_TARGET}
+  when: manual
+
+src-lint-sass:
+  stage: test
+  tags:
+    - node
+  dependencies:
+    - app-build
+  script:
+    #
+    # run no linting
+    #- echo "Warning - no SASS linting specified" && exit 0
+    #
+    # run SASS linting
+    - npm run lint:sass
+  artifacts:
+    paths:
+      - ${BUILD_TARGET}
+  when: manual
+
+src-lint-javascript:
+  stage: test
+  tags:
+    - node
+  dependencies:
+    - app-build
+  script:
+    #
+    # run no linting
+    #- echo "Warning - no JavaScript linting specified" && exit 0
+    #
+    # run SASS linting
+    - npm run lint:javascript
+  artifacts:
+    paths:
+      - ${BUILD_TARGET}
+  when: manual
+
+# ftp to dev host
+deploy-dev:
+  stage: deploy
+  tags:
+    - node
+  dependencies:
+    - app-build
+  environment:
+    name: development
+    url: https://$FTP_HOST_DEV
+  before_script:
+    #- no action for now...
+  script:
+    # deploy files
+    - npm run deploy
+    # ftp to host
+    - 'which lftp || ( apt-get update -qq && apt-get install -y -qq lftp )'
+    - lftp -c "set ftp:ssl-allow no; open -u $FTP_USERNAME_DEV,$FTP_PASSWORD_DEV $FTP_HOST_DEV; mirror -Rev ${BUILD_TARGET}/ ./$FTP_PATH_DEV/${BUILD_TARGET}  --parallel=10 --exclude-glob .git* --exclude .git/"
+  except:
+    refs:
+      - master
+      - tags
+      - release
+  artifacts:
+    paths:
+      - ${BUILD_TARGET}
+  when: manual
+
+# ftp to production/live host
+deploy-staging:
+  stage: deploy
+  tags:
+    - node
+  dependencies:
+    - app-build
+  environment:
+    name: staging
+    url: https://$FTP_HOST_TEST
+  before_script:
+    #- no action for now...
+  script:
+    # deploy files
+    - npm run deploy
+    # ftp to host
+    - 'which lftp || ( apt-get update -qq && apt-get install -y -qq lftp )'
+    - lftp -c "set ftp:ssl-allow no; open -u $FTP_USERNAME_TEST,$FTP_PASSWORD_TEST $FTP_HOST_TEST; mirror -Rev ${BUILD_TARGET}/ ./$FTP_PATH_TEST/${BUILD_TARGET}  --parallel=10 --exclude-glob .git* --exclude .git/"
+  only:
+    refs:
+      - master
+  when: manual
+
+# ftp to production/live host
+deploy-prod:
+  stage: deploy
+  tags:
+    - node
+  dependencies:
+    - app-build
+  environment:
+    name: production
+    url: https://$FTP_HOST_PROD
+  before_script:
+    #- no action for now...
+  script:
+    # deploy files
+    - npm run deploy
+    # ftp to host
+    - 'which lftp || ( apt-get update -qq && apt-get install -y -qq lftp )'
+    - lftp -c "set ftp:ssl-allow no; open -u $FTP_USERNAME_PROD,$FTP_PASSWORD_PROD $FTP_HOST_PROD; mirror -Rev ${BUILD_TARGET}/ ./$FTP_PATH_PROD/${BUILD_TARGET}  --parallel=10 --exclude-glob .git* --exclude .git/"
+  only:
+    refs:
+      - tags
+      - release
+  when: manual
+  artifacts:
+    paths:
+      - ${BUILD_TARGET}

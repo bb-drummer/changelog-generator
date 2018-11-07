@@ -1,0 +1,9 @@
+.buildpath
+.project
+.idea
+.setting*
+.nyc*
+
+node_modules
+vendor
+dist
