@@ -264,6 +264,7 @@ getCommits()
   .then(handleFirstCommitVersion)
   .then(prepareOutput)
   .then(saveLogFile)
+  .then(saveHTMLpage)
   .catch(err => {
 
     console.error("\x1b[31m%s\x1b[0m", errMsg);
