@@ -60,8 +60,9 @@ app-build:
   dependencies:
     - init
   variables:
-    BUILD_INFO_FILE: httpdocs/build.txt
+    BUILD_INFO_FILE: dist/build.txt
   script:
+    mkdir dist
     #
     # run no build
     #- echo "Warning - no build specified" && exit 0
