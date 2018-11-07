@@ -233,7 +233,7 @@ function saveHTMLpage() {
     if (!options.page) {
       resolve()
     }
-    let MarkdownRenderer = require('markded');
+    let MarkdownRenderer = require('marked');
 
     let htmlLog = [
       '<article class="lib-article row columns" id="top">',
