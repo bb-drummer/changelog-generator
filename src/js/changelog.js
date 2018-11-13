@@ -235,7 +235,7 @@ function prepareOutput(formattedCommits) {
 // print output to console
 function consoleOutput() {
   return new Promise((resolve, reject) => {
-    if (options.output || (options.file === 'stdout')) {
+    if (options.output || (String(options.file).trim() == 'stdout') || (String(options.file).trim() == 'false')) {
       console.log(out);
     }
     resolve();
@@ -245,45 +245,46 @@ function consoleOutput() {
 // save output to file
 function saveLogFile() {
   return new Promise((resolve, reject) => {
-    if (!options.file || (options.file === 'stdout')) {
+    if (!options.file || (String(options.file).trim() == 'stdout') || (String(options.file).trim() == 'false')) {
       resolve()
-    }
-    fs.writeFile(options.file, out, err => {
-      if (err) {
-        return reject(err);
-      }
+    } else {
+      fs.writeFile(options.file, out, err => {
+        if (err) {
+          return reject(err);
+        }
 
-      resolve();
-    });
+        resolve();
+      });
+    }
   });
 }
 
 // save output to html (page) file for to be converted via 'panini'
 function saveHTMLpage() {
   return new Promise((resolve, reject) => {
-    if (!options.page) {
+    if (!options.page || (String(options.page).trim() == 'false')) {
       resolve()
+    } else {
+      let MarkdownRenderer = require('marked');
+
+      let htmlLog = [
+        '<article class="lib-article row columns" id="top">',
+          '<section class="lib-section">',
+            '<div data-changelog-view>',
+                MarkdownRenderer(out),
+            '</div>',
+          '</section>',
+        '<article>'
+      ].join("\n")
+
+      fs.writeFile(options.page, htmlLog, err => {
+        if (err) {
+          return reject(err);
+        }
+
+        resolve();
+      });
     }
-    let MarkdownRenderer = require('marked');
-
-    let htmlLog = [
-      '<article class="lib-article row columns" id="top">',
-        '<section class="lib-section">',
-          '<div data-changelog-view>',
-              MarkdownRenderer(out),
-          '</div>',
-        '</section>',
-      '<article>'
-    ].join("\n")
-
-
-    fs.writeFile(options.page, htmlLog, err => {
-      if (err) {
-        return reject(err);
-      }
-
-      resolve();
-    });
   });
 }
 
