@@ -10,11 +10,13 @@ let fs     = require("fs"),
     has_rc_config = fs.existsSync(path.join(process.cwd(),".changelogrc")),
 
     defaults = {
-      file   : "./CHANGELOG.md",
-      page   : null, // "./changelog.html",
-      link   : pkg.homepage ? pkg.homepage : null,
-      jira   : null, // jira URL
-      verbose: false
+      file      : "./CHANGELOG.md",
+      page      : null, // "./changelog.html",
+      link      : pkg.homepage ? pkg.homepage : null,
+      jira      : null, // jira URL
+      verbose   : false,
+      latestonly: false,
+      output    : false
     },
     rcConfig   = has_rc_config ? require(path.join(process.cwd(),".changelogrc")) : {},
 
@@ -164,7 +166,7 @@ function handleFirstCommitVersion(formattedCommits) {
       }
 
       if (!formattedCommits[0].tag) {
-        out += `\n### ${semver.gte(pkgVers, latestTag) ? "Latest" : pkgVers} (${getToday()})\n\n`;
+        out += `\n### ${semver.gte(pkgVers, latestTag) ? ""+pkgVers+" (latest)" : pkgVers} (${getToday()})\n\n`;
       }
 
       resolve(formattedCommits);
@@ -186,24 +188,40 @@ function prepend0(val) {
 
 // assemble log markdown output
 function prepareOutput(formattedCommits) {
-  formattedCommits.forEach(commit => {
-    if (commit.tag) {
-        out += `\n### ${commit.tag} (${commit.date})\n\n`;
+  var latest = false;
+  var reseted = false;
+  formattedCommits.forEach((commit, idx) => {
+    // first entry/tag and 'latest-only' option selected...
+    // so set 'latest' flag: "we are showing latest entries only"
+    if (idx == 0) {
+      latest = (options.latestonly);
     }
 
-    if (options.verbose && commit.indent) {
-      out += "  ";
+    // ...we went on and suddenly another tag occured...
+    if ((idx > 0) && commit.tag) {
+      // so un-set the 'latest' flag
+      latest = false;
     }
 
-    if ( (!commit.indent) || (options.verbose && commit.indent) ) {
-      if (options.link) {
-        out += `- ${commit.subject} - [\[GIT\]](${options.link + commit.hash})`;
-      } else {
-        out += `- ${commit.subject}`;
+    if (latest || !options.latestonly) {
+      if (commit.tag) {
+          out += `\n### ${commit.tag} (${commit.date})\n\n`;
       }
 
-      if (commit.jira && options.jira) {
-    	out += ` - [\[JIRA\]](${options.jira + commit.jira})`;
+      if (options.verbose && commit.indent) {
+        out += "  ";
+      }
+
+      if ( (!commit.indent) || (options.verbose && commit.indent) ) {
+        if (options.link) {
+          out += `- ${commit.subject} - [\[GIT\]](${options.link + commit.hash})`;
+        } else {
+          out += `- ${commit.subject}`;
+        }
+
+        if (commit.jira && options.jira) {
+      	out += ` - [\[JIRA\]](${options.jira + commit.jira})`;
+        }
       }
     }
 
@@ -214,9 +232,22 @@ function prepareOutput(formattedCommits) {
   return Promise.resolve();
 }
 
+// print output to console
+function consoleOutput() {
+  return new Promise((resolve, reject) => {
+    if (options.output || (options.file === 'stdout')) {
+      console.log(out);
+    }
+    resolve();
+  });
+}
+
 // save output to file
 function saveLogFile() {
   return new Promise((resolve, reject) => {
+    if (!options.file || (options.file === 'stdout')) {
+      resolve()
+    }
     fs.writeFile(options.file, out, err => {
       if (err) {
         return reject(err);
@@ -263,6 +294,7 @@ getCommits()
   .then(setHeader)
   .then(handleFirstCommitVersion)
   .then(prepareOutput)
+  .then(consoleOutput)
   .then(saveLogFile)
   .then(saveHTMLpage)
   .catch(err => {
