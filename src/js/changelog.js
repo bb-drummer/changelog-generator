@@ -214,13 +214,13 @@ function prepareOutput(formattedCommits) {
 
       if ( (!commit.indent) || (options.verbose && commit.indent) ) {
         if (options.link) {
-          out += `- ${commit.subject} - [\[GIT\]](${options.link + commit.hash})`;
+          out += `- ${commit.subject} - [\[GIT\]](${(options.link+"/"+commit.hash)})`;
         } else {
           out += `- ${commit.subject}`;
         }
 
         if (commit.jira && options.jira) {
-      	out += ` - [\[JIRA\]](${options.jira + commit.jira})`;
+      	out += ` - [\[JIRA\]](${(options.jira+"/"+commit.jira)})`;
         }
       }
     }
