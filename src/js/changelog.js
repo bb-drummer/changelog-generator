@@ -16,7 +16,8 @@ let fs     = require("fs"),
       jira      : null, // jira URL
       verbose   : false,
       latestonly: false,
-      output    : false
+      output    : false,
+      json      : false
     },
     rcConfig   = has_rc_config ? require(path.join(process.cwd(),".changelogrc")) : {},
 
@@ -236,7 +237,11 @@ function prepareOutput(formattedCommits) {
 function consoleOutput() {
   return new Promise((resolve, reject) => {
     if (options.output || (String(options.file).trim() == 'stdout') || (String(options.file).trim() == 'false')) {
-      console.log(out);
+      if (!options.json) {
+        console.log(out);
+      } else {
+        console.log(json.stringify(json.parse(out)));
+      }
     }
     resolve();
   });
