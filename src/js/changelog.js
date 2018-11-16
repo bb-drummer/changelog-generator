@@ -190,6 +190,7 @@ function prepend0(val) {
 function prepareOutput(formattedCommits) {
   var latest = false;
   var reseted = false;
+  var verbose = options.verbose && (String(options.verbose).trim() != 'false');
   formattedCommits.forEach((commit, idx) => {
     // first entry/tag and 'latest-only' option selected...
     // so set 'latest' flag: "we are showing latest entries only"
@@ -208,13 +209,13 @@ function prepareOutput(formattedCommits) {
           out += `\n### ${commit.tag} (${commit.date})\n\n`;
       }
 
-      if (options.verbose && commit.indent) {
+      if (verbose && commit.indent) {
         out += "  ";
       }
 
-      if ( (!commit.indent) || (options.verbose && commit.indent) ) {
+      if ( (!commit.indent) || (verbose && commit.indent) ) {
         if (options.link) {
-          out += `- ${commit.subject} - [\[GIT\]](${(options.link+"/"+commit.hash)})`;
+          out += `- ${commit.subject} - [\[GIT\]](${(options.link+"/commit/"+commit.hash)})`;
         } else {
           out += `- ${commit.subject}`;
         }
@@ -262,7 +263,9 @@ function saveLogFile() {
 // save output to html (page) file for to be converted via 'panini'
 function saveHTMLpage() {
   return new Promise((resolve, reject) => {
-    if (!options.page || (String(options.page).trim() == 'false')) {
+    if (!options.file || (String(options.file).trim() == 'stdout') || (String(options.file).trim() == 'false')) {
+      resolve()
+    } else if (!options.page || (String(options.page).trim() == 'false')) {
       resolve()
     } else {
       let MarkdownRenderer = require('marked');
