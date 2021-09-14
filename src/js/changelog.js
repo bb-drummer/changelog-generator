@@ -35,7 +35,8 @@ if (pkg.homepage) {
   commitURI = pkg.homepage + dir;
 }
 
-console.log('options: ', options);
+let verbose = options.verbose;
+//console.log('options: ', options);
 
 let errMsg = "";
 errMsg += "+-------------------------------------------+\n";
