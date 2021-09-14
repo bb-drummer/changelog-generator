@@ -6,7 +6,10 @@ let fs     = require("fs"),
     semver = require("semver"),
     exec   = require("child_process").exec,
 
-    pkg = require(path.join(process.cwd(),"package.json")),
+    has_pkg_json = fs.existsSync(path.join(process.cwd(),"package.json")),
+    has_cmp_json = fs.existsSync(path.join(process.cwd(),"composer.json")),
+    pkg = has_pkg_json ? require(path.join(process.cwd(),"package.json")) : 
+        (has_cmp_json ? require(path.join(process.cwd(),"composer.json")) : {}),
     has_rc_config = fs.existsSync(path.join(process.cwd(),".changelogrc")),
 
     defaults = {
@@ -32,6 +35,8 @@ if (pkg.homepage) {
   commitURI = pkg.homepage + dir;
 }
 
+console.log('options: ', options);
+
 let errMsg = "";
 errMsg += "+-------------------------------------------+\n";
 errMsg += "| There was an error creating the changelog |\n";
@@ -41,7 +46,7 @@ errMsg += "+-------------------------------------------+\n";
 // hands over one large 'text' of log-lines to promise resolver
 function getCommits() {
   return new Promise((resolve, reject) => {
-    exec("git log --topo-order --full-history --simplify-merges --date=short --format=\"%cd~>%d~>%h~>%s~>%p\"", (err, commits) => {
+    exec("git log --topo-order --full-history --simplify-merges --date=short --format=\"%cd~>%d~>%H~>%s~>%p\"", (err, commits) => {
       if (err) {
         return reject(err);
       }
@@ -84,6 +89,7 @@ function formatCommits(commits) {
       mergeCommitStart = true;
       prevParent = parents.slice(0, parents.indexOf(" "));
       subject = subject.replace(/^Merge branch ('.+?').*/, "Implement $1");
+      subject = subject.replace(/^Merge in (.+?\/.+?).*/, "Implement '$1'");
     } else if (hash == prevParent) {
       mergeCommitEnd = true;
     }
