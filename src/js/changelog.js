@@ -90,7 +90,7 @@ function formatCommits(commits) {
       mergeCommitStart = true;
       prevParent = parents.slice(0, parents.indexOf(" "));
       subject = subject.replace(/^Merge branch ('.+?').*/, "Implement $1");
-      subject = subject.replace(/^Merge in (.+?\/.+?).*/, "Implement '$1'");
+      subject = subject.replace(/^Merge in (feature\/.+?) .*/, "Implement '$1'");
     } else if (hash == prevParent) {
       mergeCommitEnd = true;
     }
