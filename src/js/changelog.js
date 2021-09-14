@@ -221,7 +221,7 @@ function prepareOutput(formattedCommits) {
 
       if ( (!commit.indent) || (verbose && commit.indent) ) {
         if (options.link) {
-          out += `- ${commit.subject} - [\[GIT\]](${(options.link+"/commit/"+commit.hash)})`;
+          out += `- ${commit.subject} - [\[GIT\]](${(commitURI+commit.hash)})`;
         } else {
           out += `- ${commit.subject}`;
         }
