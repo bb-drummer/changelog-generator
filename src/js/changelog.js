@@ -221,7 +221,8 @@ function prepareOutput(formattedCommits) {
 
       if ( (!commit.indent) || (verbose && commit.indent) ) {
         if (options.link) {
-          out += `- ${commit.subject} - [\[GIT\]](${(commitURI+commit.hash)})`;
+          let dir = (options.link.includes("bitbucket") ? "/commits/" : "/commit/");
+          out += `- ${commit.subject} - [\[GIT\]](${(options.link+dir+commit.hash)})`;
         } else {
           out += `- ${commit.subject}`;
         }
