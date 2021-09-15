@@ -230,10 +230,10 @@ function prepareOutput(formattedCommits) {
         }
 
         if (commit.jira && options.jira) {
-      	out += ` - [\[JIRA\]](${(options.jira+"/"+commit.jira)})`;
+      	  out += ` - [\[JIRA\]](${(options.jira+"/"+commit.jira)})`;
         }
+	      out += `\n`;
       }
-	    out += `\n`;
     }
 
   });
