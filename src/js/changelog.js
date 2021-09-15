@@ -233,9 +233,8 @@ function prepareOutput(formattedCommits) {
       	out += ` - [\[JIRA\]](${(options.jira+"/"+commit.jira)})`;
         }
       }
+	    out += `\n`;
     }
-
-	out += `\n`;
 
   });
 
