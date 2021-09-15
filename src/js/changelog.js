@@ -6,7 +6,10 @@ let fs     = require("fs"),
     semver = require("semver"),
     exec   = require("child_process").exec,
 
-    pkg = require(path.join(process.cwd(),"package.json")),
+    has_pkg_json = fs.existsSync(path.join(process.cwd(),"package.json")),
+    has_cmp_json = fs.existsSync(path.join(process.cwd(),"composer.json")),
+    pkg = has_pkg_json ? require(path.join(process.cwd(),"package.json")) : 
+        (has_cmp_json ? require(path.join(process.cwd(),"composer.json")) : {}),
     has_rc_config = fs.existsSync(path.join(process.cwd(),".changelogrc")),
 
     defaults = {
@@ -33,6 +36,9 @@ if (pkg.homepage) {
   commitURI = pkg.homepage + dir;
 }
 
+let verbose = options.verbose;
+//console.log('options: ', options);
+
 let errMsg = "";
 errMsg += "+-------------------------------------------+\n";
 errMsg += "| There was an error creating the changelog |\n";
@@ -42,7 +48,7 @@ errMsg += "+-------------------------------------------+\n";
 // hands over one large 'text' of log-lines to promise resolver
 function getCommits() {
   return new Promise((resolve, reject) => {
-    exec("git log --topo-order --full-history --simplify-merges --date=short --format=\"%cd~>%d~>%h~>%s~>%p\"", (err, commits) => {
+    exec("git log --topo-order --full-history --simplify-merges --date=short --format=\"%cd~>%d~>%H~>%s~>%p\"", (err, commits) => {
       if (err) {
         return reject(err);
       }
@@ -84,7 +90,9 @@ function formatCommits(commits) {
     if (parents && parents.includes(" ")) {
       mergeCommitStart = true;
       prevParent = parents.slice(0, parents.indexOf(" "));
-      subject = subject.replace(/^Merge branch ('.+?').*/, "Implement $1");
+      subject = subject.replace(/^Merge branch '(.+?)'.*/, "Implement '$1'");
+      subject = subject.replace(/^Merge '(.+?)'.*/, "Implement '$1'");
+      subject = subject.replace(/^Merged in (.+?\/[A-Z]+\-\d{1,}).*/, "Implement '$1'");
     } else if (hash == prevParent) {
       mergeCommitEnd = true;
     }
@@ -191,6 +199,7 @@ function prepend0(val) {
 function prepareOutput(formattedCommits) {
   var latest = false;
   var reseted = false;
+  var verbose = options.verbose && (String(options.verbose).trim() != 'false');
   formattedCommits.forEach((commit, idx) => {
     // first entry/tag and 'latest-only' option selected...
     // so set 'latest' flag: "we are showing latest entries only"
@@ -209,24 +218,24 @@ function prepareOutput(formattedCommits) {
           out += `\n### ${commit.tag} (${commit.date})\n\n`;
       }
 
-      if (options.verbose && commit.indent) {
+      if (verbose && commit.indent) {
         out += "  ";
       }
 
-      if ( (!commit.indent) || (options.verbose && commit.indent) ) {
+      if ( (!commit.indent) || (verbose && commit.indent) ) {
         if (options.link) {
-          out += `- ${commit.subject} - [\[GIT\]](${(options.link+"/"+commit.hash)})`;
+          let dir = (options.link.includes("bitbucket") ? "/commits/" : "/commit/");
+          out += `- ${commit.subject} - [\[GIT\]](${(options.link+dir+commit.hash)})`;
         } else {
           out += `- ${commit.subject}`;
         }
 
         if (commit.jira && options.jira) {
-      	out += ` - [\[JIRA\]](${(options.jira+"/"+commit.jira)})`;
+      	  out += ` - [\[JIRA\]](${(options.jira+"/"+commit.jira)})`;
         }
+	      out += `\n`;
       }
     }
-
-	out += `\n`;
 
   });
 
@@ -267,7 +276,9 @@ function saveLogFile() {
 // save output to html (page) file for to be converted via 'panini'
 function saveHTMLpage() {
   return new Promise((resolve, reject) => {
-    if (!options.page || (String(options.page).trim() == 'false')) {
+    if (!options.file || (String(options.file).trim() == 'stdout') || (String(options.file).trim() == 'false')) {
+      resolve()
+    } else if (!options.page || (String(options.page).trim() == 'false')) {
       resolve()
     } else {
       let MarkdownRenderer = require('marked');
